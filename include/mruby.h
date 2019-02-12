@@ -43,6 +43,8 @@
 #include <stddef.h>
 #include <limits.h>
 
+// #include <libwutils.h>
+
 #ifdef __cplusplus
 #ifndef SIZE_MAX
 #ifdef __SIZE_MAX__
@@ -120,6 +122,16 @@
  */
 MRB_BEGIN_DECL
 
+enum init_state {
+    INIT_STATE_INIT,
+    INIT_STATE_OPENED,
+    INIT_STATE_ARG_PARSED,
+    INIT_STATE_RUN,
+    INIT_STATE_FIN,
+};
+enum init_state init_state;
+unsigned int running; // 1 if INIT_STATE_RUN
+
 typedef uint8_t mrb_code;
 
 /**
@@ -129,6 +141,7 @@ typedef uint8_t mrb_code;
  *
  * Example: `MRB_ARGS_REQ(2) | MRB_ARGS_OPT(1)` for a method that expects 2..3 arguments
  */
+// see mrb_aspec_comment
 typedef uint32_t mrb_aspec;
 
 struct mrb_irep;
@@ -150,6 +163,7 @@ typedef void* (*mrb_allocf) (struct mrb_state *mrb, void*, size_t, void *ud);
 #endif
 
 typedef struct {
+  // method id?
   mrb_sym mid;
   const struct RProc *proc;
   mrb_value *stackent;
@@ -830,10 +844,30 @@ MRB_API struct RClass* mrb_define_module_under(mrb_state *mrb, struct RClass *ou
 MRB_API struct RClass* mrb_define_module_under_id(mrb_state *mrb, struct RClass *outer, mrb_sym name);
 
 /**
+ * mrb_aspec
+ *
+ *  3           2            1           0
+ * 1098 7654 3210 9876 5432 1098 7654 3210
+ * xxxx xxxx xrrr rrOO OOOR PPPP Pkkk kkKB
+ *
+ * B:    MRB_ARGS_BLOCK (0, 1)
+ * k, K: MRB_ARGS_KEY(n1, n2) (1-15, 01)
+ * P:    MRB_ARGS_POST (0-31)
+ * R:    MRB_ARGS_REST (0, 1)
+ * O:    MRB_ARGS_OPT (0-31)
+ * r:    MRB_ARGS_REQ (0-31)
+ * x: unused
+ */
+mrb_aspec mrb_aspec_comment;
+
+/**
  * Function requires n arguments.
+ *
+ * MRB_ARGS_REQ(0): same as MRB_ARGS_NONE()
  *
  * @param n
  *      The number of required arguments.
+ *      (0-31)
  */
 #define MRB_ARGS_REQ(n)     ((mrb_aspec)((n)&0x1f) << 18)
 
@@ -842,6 +876,7 @@ MRB_API struct RClass* mrb_define_module_under_id(mrb_state *mrb, struct RClass 
  *
  * @param n
  *      The number of optional arguments.
+ *      (0-31)
  */
 #define MRB_ARGS_OPT(n)     ((mrb_aspec)((n)&0x1f) << 13)
 
@@ -876,6 +911,8 @@ MRB_API struct RClass* mrb_define_module_under_id(mrb_state *mrb, struct RClass 
 
 /**
  * Function accepts no arguments
+ *
+ * same as MRB_ARGS_REQ(0)
  */
 #define MRB_ARGS_NONE()     ((mrb_aspec)0)
 
@@ -901,6 +938,7 @@ MRB_API struct RClass* mrb_define_module_under_id(mrb_state *mrb, struct RClass 
  * | `d`  | data           | void *, {mrb_data_type} const | 2nd argument will be used to check data type so it won't be modified; when `!` follows, the value may be `nil` |
  * | `I`  | inline struct  | void *          |                                                    |
  * | `&`  | block          | {mrb_value}       | &! raises exception if no block given.             |
+ *                                               & -> nil if no block given
  * | `*`  | rest arguments | const {mrb_value} *, {mrb_int} | Receive the rest of arguments as an array; `*!` avoid copy of the stack.  |
  * | <code>\|</code> | optional     |                   | After this spec following specs would be optional. |
  * | `?`  | optional given | {mrb_bool}        | `TRUE` if preceding argument is given. Used to check optional argument is given. |
@@ -908,6 +946,8 @@ MRB_API struct RClass* mrb_define_module_under_id(mrb_state *mrb, struct RClass 
  *
  * @see mrb_get_args
  */
+//  * | &vert; | optional     |                   | After this spec following specs would be optional. |
+//  *                                               |S -> no change if not given
 typedef const char *mrb_args_format;
 
 /**
@@ -1100,8 +1140,8 @@ MRB_API mrb_value mrb_funcall_with_block(mrb_state *mrb, mrb_value val, mrb_sym 
 MRB_API mrb_sym mrb_intern_cstr(mrb_state *mrb, const char* str);
 MRB_API mrb_sym mrb_intern(mrb_state*,const char*,size_t);
 MRB_API mrb_sym mrb_intern_static(mrb_state*,const char*,size_t);
+// internal literal?
 #define mrb_intern_lit(mrb, lit) mrb_intern_static(mrb, (lit ""), mrb_strlen_lit(lit))
-MRB_API mrb_sym mrb_intern_str(mrb_state*,mrb_value);
 /* mrb_intern_check series functions returns 0 if the symbol is not defined */
 MRB_API mrb_sym mrb_intern_check_cstr(mrb_state*,const char*);
 MRB_API mrb_sym mrb_intern_check(mrb_state*,const char*,size_t);

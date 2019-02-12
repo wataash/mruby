@@ -1,0 +1,2 @@
+BasedOnStyle: LLVM
+AlwaysBreakAfterDefinitionReturnType: All    # void<NL>func(void)<NL>{

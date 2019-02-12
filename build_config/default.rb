@@ -1,3 +1,7 @@
+# debug in tesrb:
+# - Rakefile
+# - default.rb
+
 MRuby::Build.new do |conf|
   # load specific toolchain settings
 
@@ -22,6 +26,17 @@ MRuby::Build.new do |conf|
   # include the GEM box
   conf.gembox 'default'
 
+  # host-debug.rb:
+  # conf.gembox 'full-core'
+  conf.gem :core => "mruby-bin-debugger"
+  #
+  conf.gem 'examples/mrbgems/ruby_extension_example'
+  conf.gem 'examples/mrbgems/c_extension_example'
+  conf.gem 'examples/mrbgems/c_and_ruby_extension_example'
+  conf.gem :github => 'iij/mruby-process'
+  conf.gem :github => 'iij/mruby-require'
+  conf.gem :github => 'wataash/mruby-editline', :branch => 'master'
+
   # C compiler settings
   # conf.cc do |cc|
   #   cc.command = ENV['CC'] || 'gcc'
@@ -32,6 +47,9 @@ MRuby::Build.new do |conf|
   #   cc.option_define = '-D%s'
   #   cc.compile_options = %Q[%{flags} -MMD -o "%{outfile}" -c "%{infile}"]
   # end
+
+  # host-debug.rb:
+  conf.cc.defines = %w(MRB_USE_DEBUG_HOOK MRB_NO_BOXING)
 
   # mrbc settings
   # conf.mrbc do |mrbc|
@@ -50,6 +68,16 @@ MRuby::Build.new do |conf|
   #   linker.option_library_path = '-L%s'
   #   linker.link_options = "%{flags} -o "%{outfile}" %{objs} %{libs}"
   # end
+  false && conf.linker do |linker|
+    # linker.flags = [ENV['LDFLAGS'] || []]
+    # linker.flags_before_libraries = []
+    linker.libraries = %w(stdc++ wutils)
+    # linker.flags_after_libraries = ['-']
+    # linker.library_paths = []
+    # linker.option_library = '-lwutils'
+    # linker.option_library_path = '-L%s'
+    # linker.link_options = "%{flags} -o %{outfile} %{objs} %{libs}"
+  end
 
   # Archiver settings
   # conf.archiver do |archiver|
@@ -83,4 +111,6 @@ MRuby::Build.new do |conf|
   # conf.enable_debug
   conf.enable_bintest
   conf.enable_test
+
+  conf.enable_debug
 end

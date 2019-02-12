@@ -443,6 +443,7 @@ void decl_lv_underscore(mrb_state *mrb, mrbc_context *cxt)
 int
 main(int argc, char **argv)
 {
+  // getchar();
   char ruby_code[4096] = { 0 };
   char last_code_line[1024] = { 0 };
 #ifndef MRB_USE_READLINE

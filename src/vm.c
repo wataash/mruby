@@ -1,14 +1,26 @@
+// watch: const char *___...
+// set: ___dbg_set_by_debugger
+#include <sys/cdefs.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <math.h>
+#include <time.h>
+#include <unistd.h>
+
 /*
 ** vm.c - virtual machine for mruby
 **
 ** See Copyright Notice in mruby.h
 */
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdarg.h>
 #ifndef MRB_NO_FLOAT
 #include <math.h>
 #endif
+
 #include <mruby.h>
 #include <mruby/array.h>
 #include <mruby/class.h>
@@ -398,6 +410,12 @@ ci_nregs(mrb_callinfo *ci)
 MRB_API mrb_value
 mrb_funcall_with_block(mrb_state *mrb, mrb_value self, mrb_sym mid, mrb_int argc, const mrb_value *argv, mrb_value blk)
 {
+#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
+  const char *___mid = mrb_sym2name(mrb, mid); // "initialize"
+  const char *___self = mrb_obj_classname(mrb, self); // "RuntimeError"
+  (void)___mid;
+  (void)___self;
+
   mrb_value val;
   int ai = mrb_gc_arena_save(mrb);
 
@@ -436,10 +454,12 @@ mrb_funcall_with_block(mrb_state *mrb, mrb_value self, mrb_sym mid, mrb_int argc
     }
     c = mrb_class(mrb, self);
     m = mrb_method_search_vm(mrb, &c, mid);
+    // TODO: what ruby code reaches here?
     if (MRB_METHOD_UNDEF_P(m)) {
       mrb_sym missing = MRB_SYM(method_missing);
       mrb_value args = mrb_ary_new_from_values(mrb, argc, argv);
       m = mrb_method_search_vm(mrb, &c, missing);
+      // TODO: what ruby code reaches here?
       if (MRB_METHOD_UNDEF_P(m)) {
         mrb_method_missing(mrb, mid, self, args);
       }
@@ -481,6 +501,7 @@ mrb_funcall_with_block(mrb_state *mrb, mrb_value self, mrb_sym mid, mrb_int argc
     }
     mrb->c->stack[argc+1] = blk;
 
+    // TODO: what ruby code reaches here?
     if (MRB_METHOD_CFUNC_P(m)) {
       ci->acc = CI_ACC_DIRECT;
       val = MRB_METHOD_CFUNC(m)(mrb, self);
@@ -488,6 +509,7 @@ mrb_funcall_with_block(mrb_state *mrb, mrb_value self, mrb_sym mid, mrb_int argc
     }
     else {
       ci->acc = CI_ACC_SKIP;
+      // TODO: what ruby code reaches here?
       val = mrb_run(mrb, MRB_METHOD_PROC(m), self);
     }
   }
@@ -568,6 +590,7 @@ mrb_f_send(mrb_state *mrb, mrb_value self)
 
   c = mrb_class(mrb, self);
   m = mrb_method_search_vm(mrb, &c, name);
+  // TODO: what ruby code reaches here?
   if (MRB_METHOD_UNDEF_P(m)) {            /* call method_mising */
     goto funcall;
   }
@@ -586,12 +609,16 @@ mrb_f_send(mrb_state *mrb, mrb_value self)
     regs[0] = mrb_ary_subseq(mrb, regs[0], 1, RARRAY_LEN(regs[0]) - 1);
   }
 
+  // TODO: what ruby code reaches here?
   if (MRB_METHOD_CFUNC_P(m)) {
+    // TODO: what ruby code reaches here?
     if (MRB_METHOD_PROC_P(m)) {
       ci->proc = MRB_METHOD_PROC(m);
     }
+    // TODO: what ruby code reaches here?
     return MRB_METHOD_CFUNC(m)(mrb, self);
   }
+  // TODO: what ruby code reaches here?
   return mrb_exec_irep(mrb, self, MRB_METHOD_PROC(m));
 }
 
@@ -989,6 +1016,17 @@ mrb_vm_run(mrb_state *mrb, const struct RProc *proc, mrb_value self, mrb_int sta
   mrb_stack_extend(mrb, nregs);
   stack_clear(c->stack + stack_keep, nregs - stack_keep);
   c->stack[0] = self;
+
+  if (init_state == INIT_STATE_INIT)
+    asm("nop");
+  else if (init_state == INIT_STATE_ARG_PARSED) {
+      init_state = INIT_STATE_RUN;
+      running = 1;
+  }
+  else {
+    fprintf(stderr, "\x1b[31m%s: init_state: %d\x1b[0m\n", __func__, init_state);
+  }
+
   result = mrb_vm_exec(mrb, proc, irep->iseq);
   if (mrb->c != c) {
     if (mrb->c->fib) {
@@ -1014,6 +1052,38 @@ check_target_class(mrb_state *mrb)
 }
 
 void mrb_hash_check_kdict(mrb_state *mrb, mrb_value self);
+
+__attribute__((unused))
+static void
+record_method(mrb_state *mrb, mrb_value recv, mrb_sym mid)
+{
+  enum { MAX_FNAME = sizeof("/tmp/mruby_debug/record.XXXXXXXX") };
+  char fname[MAX_FNAME];
+  struct timespec ts;
+
+  snprintf(fname, MAX_FNAME, "/tmp/mruby_debug/record.%d", getpid());
+
+  errno = 0;
+  FILE *f = fopen(fname, "a");
+  if (f == NULL) {
+    if (errno == ENOENT) {
+      fprintf(stderr, "do `mkdir /tmp/mruby_debug/` first`\n");
+      return;
+    }
+    perror("fopen");
+    return;
+  }
+
+  (void)clock_gettime(CLOCK_REALTIME, &ts);
+
+  fprintf(f, "%012jd.%09jd %20s %s\n",
+          ts.tv_sec, ts.tv_nsec,
+          mrb_obj_classname(mrb, recv), mrb_sym2name(mrb, mid));
+
+  if (fclose(f) != 0) {
+    perror("fclose");
+  }
+}
 
 MRB_API mrb_value
 mrb_vm_exec(mrb_state *mrb, const struct RProc *proc, const mrb_code *pc)
@@ -1413,6 +1483,7 @@ RETRY_TRY_BLOCK:
     mid = syms[b];
     L_SENDB_SYM:
     {
+      // mirb: "foo".dig(0)
       mrb_int argc = (c == CALL_MAXARGS) ? -1 : c;
       mrb_int bidx = (argc < 0) ? a+2 : a+c+1;
       mrb_method_t m;
@@ -1423,6 +1494,15 @@ RETRY_TRY_BLOCK:
       mrb_assert(bidx < irep->nregs);
 
       recv = regs[a];
+      // const char *___recv = mrb_obj_classname(mrb, recv); // String
+      // const char *___mid = mrb_sym2name(mrb, mid); // dig
+      // static int ___dbg_set_by_debugger;
+      // if (___dbg_set_by_debugger) {
+      //   fprintf(stderr, "%s\n", ___recv);
+      //   fprintf(stderr, "%s\n", ___mid);
+      // }
+      // // record_method(mrb, recv, mid);
+      // (void)record_method;
       blk = regs[bidx];
       if (!mrb_nil_p(blk) && !mrb_proc_p(blk)) {
         blk = mrb_type_convert(mrb, blk, MRB_TT_PROC, MRB_SYM(to_proc));
@@ -1433,9 +1513,11 @@ RETRY_TRY_BLOCK:
       cls = mrb_class(mrb, recv);
       m = mrb_method_search_vm(mrb, &cls, mid);
       if (MRB_METHOD_UNDEF_P(m)) {
+        // mirb: foo
         mrb_sym missing = MRB_SYM(method_missing);
         m = mrb_method_search_vm(mrb, &cls, missing);
         if (MRB_METHOD_UNDEF_P(m) || (missing == mrb->c->ci->mid && mrb_obj_eq(mrb, regs[0], recv))) {
+          // mirb: foo
           mrb_value args = (argc < 0) ? regs[a+1] : mrb_ary_new_from_values(mrb, c, regs+a+1);
           ERR_PC_SET(mrb);
           mrb_method_missing(mrb, mid, recv, args);
@@ -1452,11 +1534,14 @@ RETRY_TRY_BLOCK:
         mid = missing;
       }
 
+      // mirb: "foo".dig(0)
       /* push callinfo */
       ci = cipush(mrb, pc, a, a, cls, NULL, mid, argc);
 
       if (MRB_METHOD_CFUNC_P(m)) {
+        // TODO: what ruby code reaches here?
         if (MRB_METHOD_PROC_P(m)) {
+          // TODO: what ruby code reaches here?
           struct RProc *p = MRB_METHOD_PROC(m);
 
           ci->proc = p;
@@ -1468,6 +1553,8 @@ RETRY_TRY_BLOCK:
           goto L_RAISE;
         }
         else {
+          // String.[]
+          mrb_print_backtrace(mrb);
           recv = MRB_METHOD_FUNC(m)(mrb, recv);
         }
         mrb_gc_arena_restore(mrb, ai);
@@ -1500,11 +1587,28 @@ RETRY_TRY_BLOCK:
         JUMP;
       }
       else {
+        // mirb: "foo".dig(0)
         /* setup environment for calling method */
         proc = ci->proc = MRB_METHOD_PROC(m);
         irep = proc->body.irep;
         pool = irep->pool;
         syms = irep->syms;
+        // const char *___pool[16];
+        // const char *___syms[16];
+        // for (int i = 0; i < irep->plen && i < 16; i++) {
+        //   if (i == 16) {
+        //     printf("%s %d over 16\n", __FILE__, __LINE__);
+        //   }
+        //   fprintf(stderr, "%s %d\n", __FILE__, __LINE__);
+        //   ___pool[i] = mrb_obj_classname(mrb, *pool);
+        //   ___pool[i] = mrb_string_value_cstr(mrb, pool);
+        //   ___pool[i] = mrb_string_value_ptr(mrb, *pool);
+        //   ___pool[i] = mrb_str_to_cstr(mrb, *pool);
+        //   fprintf(stderr, "%s %d\n", __FILE__, __LINE__);
+        // }
+        // for (int i = 0; i < irep->plen && i < 16; i++) {
+        //   ___syms[i] = mrb_sym2name(mrb, syms[i]);
+        // }
         mrb_stack_extend(mrb, (argc < 0 && irep->nregs < 3) ? 3 : irep->nregs);
         pc = irep->iseq;
         JUMP;
@@ -1618,6 +1722,7 @@ RETRY_TRY_BLOCK:
       }
       cls = target_class->super;
       m = mrb_method_search_vm(mrb, &cls, mid);
+      // TODO: what ruby code reaches here?
       if (MRB_METHOD_UNDEF_P(m)) {
         mrb_sym missing = MRB_SYM(method_missing);
 
@@ -1625,9 +1730,11 @@ RETRY_TRY_BLOCK:
           cls = mrb_class(mrb, recv);
         }
         m = mrb_method_search_vm(mrb, &cls, missing);
+        // TODO: what ruby code reaches here?
         if (MRB_METHOD_UNDEF_P(m)) {
           mrb_value args = (argc < 0) ? regs[a+1] : mrb_ary_new_from_values(mrb, b, regs+a+1);
           ERR_PC_SET(mrb);
+          // TODO: what ruby code reaches here?
           mrb_method_missing(mrb, mid, recv, args);
         }
         mid = missing;
@@ -1648,12 +1755,16 @@ RETRY_TRY_BLOCK:
       /* prepare stack */
       mrb->c->stack[0] = recv;
 
+      // TODO: what ruby code reaches here?
       if (MRB_METHOD_CFUNC_P(m)) {
         mrb_value v;
 
+        // TODO: what ruby code reaches here?
         if (MRB_METHOD_PROC_P(m)) {
+          // TODO: what ruby code reaches here?
           ci->proc = MRB_METHOD_PROC(m);
         }
+        // TODO: what ruby code reaches here?
         v = MRB_METHOD_CFUNC(m)(mrb, recv);
         mrb_gc_arena_restore(mrb, ai);
         if (mrb->exc) goto L_RAISE;
@@ -1681,6 +1792,7 @@ RETRY_TRY_BLOCK:
         /* fill callinfo */
         ci->acc = a;
 
+        // TODO: what ruby code reaches here?
         /* setup environment for calling method */
         proc = ci->proc = MRB_METHOD_PROC(m);
         irep = proc->body.irep;
@@ -2760,6 +2872,7 @@ RETRY_TRY_BLOCK:
       struct RProc *p = mrb_proc_ptr(regs[a+1]);
       mrb_method_t m;
 
+      // TODO: what ruby code reaches here?
       MRB_METHOD_FROM_PROC(m, p);
       mrb_define_method_raw(mrb, target, syms[b], m);
       mrb_gc_arena_restore(mrb, ai);

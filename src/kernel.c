@@ -484,6 +484,8 @@ mrb_obj_remove_instance_variable(mrb_state *mrb, mrb_value self)
 void
 mrb_method_missing(mrb_state *mrb, mrb_sym name, mrb_value self, mrb_value args)
 {
+  // // method name:
+  // const char *___name = mrb_sym2name(mrb, name);
   mrb_no_method_error(mrb, name, args, "undefined method '%n'", name);
 }
 

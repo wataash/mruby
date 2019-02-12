@@ -4,6 +4,19 @@
 #include <mruby/hash.h>
 #include <mruby/proc.h>
 
+void wataash_test(mrb_state *mrb) {
+  mrb_value v;
+  struct RClass *r;
+
+  v = mrb_nil_value(); // 0, MRB_TT_FALSE
+  v = mrb_false_value(); // 1, MRB_TT_FALSE
+  v = mrb_true_value(); // 1, MRB_TT_TRUE
+  v = mrb_undef_value(); // 0, MRB_TT_UNDEF
+  v = mrb_nil_value();
+
+  r = mrb_class_get(mrb, "Object");
+}
+
 /*
  *  call-seq:
  *     nil.to_a    -> []
@@ -112,6 +125,8 @@ mrb_obj_instance_exec(mrb_state *mrb, mrb_value self)
 void
 mrb_mruby_object_ext_gem_init(mrb_state* mrb)
 {
+  wataash_test(mrb);
+
   struct RClass * n = mrb->nil_class;
 
   mrb_define_method(mrb, n, "to_a", nil_to_a,       MRB_ARGS_NONE());

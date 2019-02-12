@@ -12,6 +12,10 @@
 #define MRB_FIXNUM_MIN MRB_INT_MIN
 #define MRB_FIXNUM_MAX MRB_INT_MAX
 
+// const char *___self = mrb_obj_classname(mrb, self);
+// const char *___todo = mrb_string_value_cstr(mrb, todo);
+// const char *___todo = mrb_string_value_ptr(mrb, todo);
+// const char *___todo = mrb_str_to_cstr(mrb, todo);
 union mrb_value_union {
 #ifndef MRB_NO_FLOAT
   mrb_float f;

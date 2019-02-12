@@ -2,6 +2,7 @@
 #include <mruby/string.h>
 #include <stdio.h>
 
+// CExtension.c_method
 static mrb_value
 mrb_c_method(mrb_state *mrb, mrb_value self)
 {
@@ -21,4 +22,5 @@ mrb_c_extension_example_gem_init(mrb_state* mrb) {
 void
 mrb_c_extension_example_gem_final(mrb_state* mrb) {
   /* finalizer */
+  asm("nop");
 }

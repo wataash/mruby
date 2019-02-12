@@ -274,6 +274,10 @@ main(int argc, char **argv)
   mrb_value v;
   mrb_sym zero_sym;
 
+  if (init_state != INIT_STATE_INIT)
+    fprintf(stderr, "\x1b[31m%s: init_state: %d\x1b[0m\n", __func__, init_state);
+  init_state = INIT_STATE_OPENED;
+
   if (mrb == NULL) {
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv);
     return EXIT_FAILURE;
@@ -339,6 +343,10 @@ main(int argc, char **argv)
       mrbc_cleanup_local_variables(mrb, c);
     }
 
+    if (init_state != INIT_STATE_OPENED)
+      fprintf(stderr, "\x1b[31m%s: init_state: %d\x1b[0m\n", __func__, init_state);
+    init_state = INIT_STATE_ARG_PARSED;
+
     /* Load program */
     if (args.mrbfile) {
       v = mrb_load_irep_file_cxt(mrb, args.rfp, c);
@@ -352,6 +360,11 @@ main(int argc, char **argv)
       v = mrb_load_string_cxt(mrb, utf8, c);
       mrb_utf8_free(utf8);
     }
+
+    if (init_state != INIT_STATE_RUN)
+      fprintf(stderr, "\x1b[31m%s: init_state: %d\x1b[0m\n", __func__, init_state);
+    init_state = INIT_STATE_FIN;
+    running = 0;
 
     mrb_gc_arena_restore(mrb, ai);
     mrbc_context_free(mrb, c);

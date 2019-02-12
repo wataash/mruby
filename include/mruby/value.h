@@ -20,6 +20,7 @@ MRB_BEGIN_DECL
  *
  * You can create an mrb_sym by simply using mrb_str_intern() or mrb_intern_cstr()
  */
+// const char *___sym = mrb_sym2name(mrb, sym);
 typedef uint32_t mrb_sym;
 
 /**
@@ -123,6 +124,7 @@ enum mrb_vtype {
   MRB_TT_RANGE,
   MRB_TT_EXCEPTION,
   MRB_TT_ENV,
+  // data.h
   MRB_TT_DATA,
   MRB_TT_FIBER,
   MRB_TT_ISTRUCT,

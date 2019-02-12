@@ -38,6 +38,7 @@ struct REnv {
 
 void mrb_env_unshare(mrb_state*, struct REnv*);
 
+// see vm.c
 struct RProc {
   MRB_OBJECT_HEADER;
   union {

@@ -1,3 +1,7 @@
+# do debug in tesrb
+# /home/wsh/qc/mruby/Rakefile
+# /home/wsh/qc/mruby/build_config.rb
+
 # encoding: utf-8
 # Build description.
 # basic build file for mruby

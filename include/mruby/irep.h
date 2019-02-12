@@ -50,6 +50,7 @@ struct mrb_irep_catch_handler {
   uint8_t target[2];    /* The address to jump to if a match is made. */
 };
 
+// see vm.c
 /* Program data array struct */
 typedef struct mrb_irep {
   uint16_t nlocals;        /* Number of local variables */
@@ -57,14 +58,18 @@ typedef struct mrb_irep {
   uint16_t clen;           /* Number of catch handlers */
   uint8_t flags;
 
+  // length: ilen
   const mrb_code *iseq;
   /*
    * A catch handler table is placed after the iseq entity.
    * The reason it doesn't add fields to the structure is to keep the mrb_irep structure from bloating.
    * The catch handler table can be obtained with `mrb_irep_catch_handler_table(irep)`.
    */
+  // length: plen
   const mrb_pool_value *pool;
+  // length: slen
   const mrb_sym *syms;
+  // length: rlen
   const struct mrb_irep * const *reps;
 
   const mrb_sym *lv;

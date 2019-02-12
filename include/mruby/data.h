@@ -4,6 +4,8 @@
 ** See Copyright Notice in mruby.h
 */
 
+// see editline.c for usage
+
 #ifndef MRUBY_DATA_H
 #define MRUBY_DATA_H
 
