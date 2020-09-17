@@ -5,6 +5,8 @@
 #include <mruby/string.h>
 #include <mruby/range.h>
 
+#include <expat.h>
+
 #define ENC_ASCII_8BIT "ASCII-8BIT"
 #define ENC_BINARY     "BINARY"
 #define ENC_UTF8       "UTF-8"
@@ -1197,11 +1199,81 @@ mrb_str_lines(mrb_state *mrb, mrb_value self)
   return result;
 }
 
+//
+
+// element := ["element-name", parent, children]
+// parent := element
+// children := [element, element, ...]
+static mrb_value element_parent;
+
+static mrb_state *mrb_;
+
+void
+startElementHandler(void *userData, const XML_Char *name, const XML_Char **atts)
+{
+  mrb_value elem = mrb_ary_new_capa(mrb_, 3);
+  {
+    struct mrb_value tmp = mrb_str_new_cstr(mrb_, name);
+    mrb_ary_push(mrb_, elem, tmp);
+  }
+  mrb_ary_push(mrb_, elem, element_parent);
+  mrb_ary_push(mrb_, elem, mrb_ary_new(mrb_));
+  {
+    mrb_value parent_children = mrb_ary_ref(mrb_, element_parent, 2);
+    mrb_ary_push(mrb_, parent_children, elem);
+  }
+  element_parent = elem;
+}
+
+void
+endElementHandler(void *userData, const XML_Char *name)
+{
+  mrb_value parent_ = mrb_ary_ref(mrb_, element_parent, 1);
+  element_parent = parent_;
+}
+
+void
+dataHandler(void *userData, const XML_Char *s, int len)
+{
+  asm("nop"); // TODO
+}
+
+static mrb_value
+parse_xml(mrb_state *mrb, mrb_value cls)
+{
+  char *s;
+  mrb_int todo = mrb_get_args(mrb, "z", &s);
+  XML_Parser parser = XML_ParserCreate(NULL);
+  (void)todo;
+
+  XML_SetElementHandler(parser, startElementHandler, endElementHandler);
+  XML_SetCharacterDataHandler(parser, dataHandler);
+
+  element_parent = mrb_ary_new_capa(mrb, 3);
+  {
+    struct mrb_value tmp = mrb_str_new_lit(mrb, "(root)");
+    mrb_ary_push(mrb, element_parent, tmp);
+  }
+  mrb_ary_push(mrb, element_parent, mrb_nil_value());
+  mrb_ary_push(mrb, element_parent, mrb_ary_new(mrb));
+
+  mrb_ = mrb;
+  if (XML_Parse(parser, s, strlen(s), XML_TRUE) == XML_STATUS_ERROR) {
+    const XML_LChar *todo = XML_ErrorString(XML_GetErrorCode(parser));
+    (void)todo;
+  }
+
+  XML_ParserFree(parser);
+
+  return element_parent;
+}
+
 void
 mrb_mruby_string_ext_gem_init(mrb_state* mrb)
 {
   struct RClass * s = mrb->string_class;
 
+  mrb_define_class_method(mrb, s, "parse_xml",            parse_xml,            MRB_ARGS_REQ(1));
   mrb_define_method(mrb, s, "dump",            mrb_str_dump,            MRB_ARGS_NONE());
   mrb_define_method(mrb, s, "swapcase!",       mrb_str_swapcase_bang,   MRB_ARGS_NONE());
   mrb_define_method(mrb, s, "swapcase",        mrb_str_swapcase,        MRB_ARGS_NONE());
