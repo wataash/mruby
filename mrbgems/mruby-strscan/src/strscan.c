@@ -1,26 +1,20 @@
-/*
-    $Id$
+// #include "ruby/ruby.h"
+// #include "ruby/re.h"
+// #include "ruby/encoding.h"
 
-    Copyright (c) 1999-2006 Minero Aoki
-
-    This program is free software.
-    You can distribute/modify this program under the terms of
-    the Ruby License. For details, see the file COPYING.
-*/
-
-#include "ruby/ruby.h"
-#include "ruby/re.h"
-#include "ruby/encoding.h"
-
-#ifdef RUBY_EXTCONF_H
-#  include RUBY_EXTCONF_H
-#endif
-
-#ifdef HAVE_ONIG_REGION_MEMSIZE
-extern size_t onig_region_memsize(const struct re_registers *regs);
-#endif
+// #ifdef RUBY_EXTCONF_H
+// #  include RUBY_EXTCONF_H
+// #endif
+//
+// #ifdef HAVE_ONIG_REGION_MEMSIZE
+// extern size_t onig_region_memsize(const struct re_registers *regs);
+// #endif
 
 #include <stdbool.h>
+
+#include <mruby.h>
+#include <mruby/string.h>
+
 
 #define STRSCAN_VERSION "1.0.3"
 
@@ -1460,214 +1454,8 @@ strscan_fixed_anchor_p(VALUE self)
     return p->fixed_anchor_p ? Qtrue : Qfalse;
 }
 
-/* =======================================================================
-                              Ruby Interface
-   ======================================================================= */
-
-/*
- * Document-class: StringScanner
- *
- * StringScanner provides for lexical scanning operations on a String.  Here is
- * an example of its usage:
- *
- *   s = StringScanner.new('This is an example string')
- *   s.eos?               # -> false
- *
- *   p s.scan(/\w+/)      # -> "This"
- *   p s.scan(/\w+/)      # -> nil
- *   p s.scan(/\s+/)      # -> " "
- *   p s.scan(/\s+/)      # -> nil
- *   p s.scan(/\w+/)      # -> "is"
- *   s.eos?               # -> false
- *
- *   p s.scan(/\s+/)      # -> " "
- *   p s.scan(/\w+/)      # -> "an"
- *   p s.scan(/\s+/)      # -> " "
- *   p s.scan(/\w+/)      # -> "example"
- *   p s.scan(/\s+/)      # -> " "
- *   p s.scan(/\w+/)      # -> "string"
- *   s.eos?               # -> true
- *
- *   p s.scan(/\s+/)      # -> nil
- *   p s.scan(/\w+/)      # -> nil
- *
- * Scanning a string means remembering the position of a <i>scan pointer</i>,
- * which is just an index.  The point of scanning is to move forward a bit at
- * a time, so matches are sought after the scan pointer; usually immediately
- * after it.
- *
- * Given the string "test string", here are the pertinent scan pointer
- * positions:
- *
- *     t e s t   s t r i n g
- *   0 1 2 ...             1
- *                         0
- *
- * When you #scan for a pattern (a regular expression), the match must occur
- * at the character after the scan pointer.  If you use #scan_until, then the
- * match can occur anywhere after the scan pointer.  In both cases, the scan
- * pointer moves <i>just beyond</i> the last character of the match, ready to
- * scan again from the next character onwards.  This is demonstrated by the
- * example above.
- *
- * == Method Categories
- *
- * There are other methods besides the plain scanners.  You can look ahead in
- * the string without actually scanning.  You can access the most recent match.
- * You can modify the string being scanned, reset or terminate the scanner,
- * find out or change the position of the scan pointer, skip ahead, and so on.
- *
- * === Advancing the Scan Pointer
- *
- * - #getch
- * - #get_byte
- * - #scan
- * - #scan_until
- * - #skip
- * - #skip_until
- *
- * === Looking Ahead
- *
- * - #check
- * - #check_until
- * - #exist?
- * - #match?
- * - #peek
- *
- * === Finding Where we Are
- *
- * - #beginning_of_line? (#bol?)
- * - #eos?
- * - #rest?
- * - #rest_size
- * - #pos
- *
- * === Setting Where we Are
- *
- * - #reset
- * - #terminate
- * - #pos=
- *
- * === Match Data
- *
- * - #matched
- * - #matched?
- * - #matched_size
- * - []
- * - #pre_match
- * - #post_match
- *
- * === Miscellaneous
- *
- * - <<
- * - #concat
- * - #string
- * - #string=
- * - #unscan
- *
- * There are aliases to several of the methods.
- */
-void
-Init_strscan(void)
-{
-#undef rb_intern
-    ID id_scanerr = rb_intern("ScanError");
-    VALUE tmp;
-
-    id_byteslice = rb_intern("byteslice");
-
-    StringScanner = rb_define_class("StringScanner", rb_cObject);
-    ScanError = rb_define_class_under(StringScanner, "Error", rb_eStandardError);
-    if (!rb_const_defined(rb_cObject, id_scanerr)) {
-	rb_const_set(rb_cObject, id_scanerr, ScanError);
-    }
-    tmp = rb_str_new2(STRSCAN_VERSION);
-    rb_obj_freeze(tmp);
-    rb_const_set(StringScanner, rb_intern("Version"), tmp);
-    tmp = rb_str_new2("$Id$");
-    rb_obj_freeze(tmp);
-    rb_const_set(StringScanner, rb_intern("Id"), tmp);
-
-    rb_define_alloc_func(StringScanner, strscan_s_allocate);
-    rb_define_private_method(StringScanner, "initialize", strscan_initialize, -1);
-    rb_define_private_method(StringScanner, "initialize_copy", strscan_init_copy, 1);
-    rb_define_singleton_method(StringScanner, "must_C_version", strscan_s_mustc, 0);
-    rb_define_method(StringScanner, "reset",       strscan_reset,       0);
-    rb_define_method(StringScanner, "terminate",   strscan_terminate,   0);
-    rb_define_method(StringScanner, "clear",       strscan_clear,       0);
-    rb_define_method(StringScanner, "string",      strscan_get_string,  0);
-    rb_define_method(StringScanner, "string=",     strscan_set_string,  1);
-    rb_define_method(StringScanner, "concat",      strscan_concat,      1);
-    rb_define_method(StringScanner, "<<",          strscan_concat,      1);
-    rb_define_method(StringScanner, "pos",         strscan_get_pos,     0);
-    rb_define_method(StringScanner, "pos=",        strscan_set_pos,     1);
-    rb_define_method(StringScanner, "charpos",     strscan_get_charpos, 0);
-    rb_define_method(StringScanner, "pointer",     strscan_get_pos,     0);
-    rb_define_method(StringScanner, "pointer=",    strscan_set_pos,     1);
-
-    rb_define_method(StringScanner, "scan",        strscan_scan,        1);
-    rb_define_method(StringScanner, "skip",        strscan_skip,        1);
-    rb_define_method(StringScanner, "match?",      strscan_match_p,     1);
-    rb_define_method(StringScanner, "check",       strscan_check,       1);
-    rb_define_method(StringScanner, "scan_full",   strscan_scan_full,   3);
-
-    rb_define_method(StringScanner, "scan_until",  strscan_scan_until,  1);
-    rb_define_method(StringScanner, "skip_until",  strscan_skip_until,  1);
-    rb_define_method(StringScanner, "exist?",      strscan_exist_p,     1);
-    rb_define_method(StringScanner, "check_until", strscan_check_until, 1);
-    rb_define_method(StringScanner, "search_full", strscan_search_full, 3);
-
-    rb_define_method(StringScanner, "getch",       strscan_getch,       0);
-    rb_define_method(StringScanner, "get_byte",    strscan_get_byte,    0);
-    rb_define_method(StringScanner, "getbyte",     strscan_getbyte,     0);
-    rb_define_method(StringScanner, "peek",        strscan_peek,        1);
-    rb_define_method(StringScanner, "peep",        strscan_peep,        1);
-
-    rb_define_method(StringScanner, "unscan",      strscan_unscan,      0);
-
-    rb_define_method(StringScanner, "beginning_of_line?", strscan_bol_p, 0);
-    rb_alias(StringScanner, rb_intern("bol?"), rb_intern("beginning_of_line?"));
-    rb_define_method(StringScanner, "eos?",        strscan_eos_p,       0);
-    rb_define_method(StringScanner, "empty?",      strscan_empty_p,     0);
-    rb_define_method(StringScanner, "rest?",       strscan_rest_p,      0);
-
-    rb_define_method(StringScanner, "matched?",    strscan_matched_p,   0);
-    rb_define_method(StringScanner, "matched",     strscan_matched,     0);
-    rb_define_method(StringScanner, "matched_size", strscan_matched_size, 0);
-    rb_define_method(StringScanner, "[]",          strscan_aref,        1);
-    rb_define_method(StringScanner, "pre_match",   strscan_pre_match,   0);
-    rb_define_method(StringScanner, "post_match",  strscan_post_match,  0);
-    rb_define_method(StringScanner, "size",        strscan_size,        0);
-    rb_define_method(StringScanner, "captures",    strscan_captures,    0);
-    rb_define_method(StringScanner, "values_at",   strscan_values_at,  -1);
-
-    rb_define_method(StringScanner, "rest",        strscan_rest,        0);
-    rb_define_method(StringScanner, "rest_size",   strscan_rest_size,   0);
-    rb_define_method(StringScanner, "restsize",    strscan_restsize,    0);
-
-    rb_define_method(StringScanner, "inspect",     strscan_inspect,     0);
-
-    rb_define_method(StringScanner, "fixed_anchor?", strscan_fixed_anchor_p, 0);
-}
 
 
-
-
-#include <mruby.h>
-#include <mruby/string.h>
-#include <stdio.h>
-
-void tes(mrb_state *mrb);
-
-// CRubyExtension.c_method
-// #0  mrb_c_method (mrb=0x56033b5812a0, self=...) at /home/wsh/qc/mruby/examples/mrbgems/c_and_ruby_extension_example/src/example.c:9
-// #1  0x000056033b0fdda5 in mrb_vm_exec (mrb=0x56033b5812a0, proc=0x56033b5f6060, pc=0x56033b60bd37 "7\001g") at /home/wsh/qc/mruby/src/vm.c:1478
-// #2  0x000056033b0fa6d0 in mrb_vm_run (mrb=0x56033b5812a0, proc=0x56033b5f6060, self=..., stack_keep=0) at /home/wsh/qc/mruby/src/vm.c:945
-// #3  0x000056033b10c7b6 in mrb_top_run (mrb=0x56033b5812a0, proc=0x56033b5f6060, self=..., stack_keep=0) at /home/wsh/qc/mruby/src/vm.c:2875
-// #4  0x000056033b125725 in mrb_load_exec (mrb=0x56033b5812a0, p=0x56033b600040, c=0x56033b5fff80) at mrbgems/mruby-compiler/core/parse.y:6522
-// #5  0x000056033b125839 in mrb_load_nstring_cxt (mrb=0x56033b5812a0, s=0x56033b5fff40 "CRubyExtension.c_method", len=23, c=0x56033b5fff80) at mrbgems/mruby-compiler/core/parse.y:6544
-// #6  0x000056033b1258af in mrb_load_string_cxt (mrb=0x56033b5812a0, s=0x56033b5fff40 "CRubyExtension.c_method", c=0x56033b5fff80) at mrbgems/mruby-compiler/core/parse.y:6556
-// #7  0x000056033b0ce3f1 in main (argc=4, argv=0x7ffc308d5e58) at /home/wsh/qc/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:346
 static mrb_value
 mrb_c_method(mrb_state *mrb, mrb_value self)
 {
@@ -1679,30 +1467,96 @@ mrb_c_method(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-// called at startup
-// #0  mrb_c_and_ruby_extension_example_gem_init (mrb=0x560b61bd42a0) at /home/wsh/qc/mruby/examples/mrbgems/c_and_ruby_extension_example/src/example.c:16
-// #1  0x0000560b611a1f2d in GENERATED_TMP_mrb_c_and_ruby_extension_example_gem_init (mrb=0x560b61bd42a0) at /home/wsh/qc/mruby/build/host/mrbgems/c_and_ruby_extension_example/gem_init.c:61
-// #2  0x0000560b61197f8c in mrb_init_mrbgems (mrb=0x560b61bd42a0) at /home/wsh/qc/mruby/build/host/mrbgems/gem_init.c:134
-// #3  0x0000560b6117ca9f in init_mrbgems (mrb=0x560b61bd42a0, opaque=0x0) at /home/wsh/qc/mruby/src/state.c:83
-// #4  0x0000560b6114e4c4 in mrb_core_init_protect (mrb=0x560b61bd42a0, body=0x560b6117ca7f <init_mrbgems>, opaque=0x0) at /home/wsh/qc/mruby/src/error.c:569
-// #5  0x0000560b6117caf3 in mrb_open_allocf (f=0x560b6117ca0d <mrb_default_allocf>, ud=0x0) at /home/wsh/qc/mruby/src/state.c:96
-// #6  0x0000560b6117ca75 in mrb_open () at /home/wsh/qc/mruby/src/state.c:75
-// #7  0x0000560b6113de89 in main (argc=4, argv=0x7fff3b06ae68) at /home/wsh/qc/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:260
 void
 mrb_c_and_ruby_extension_example_gem_init(mrb_state* mrb) {
-  struct RClass *class_cextension = mrb_define_module(mrb, "CRubyExtension");
-  mrb_define_class_method(mrb, class_cextension, "c_method", mrb_c_method, MRB_ARGS_NONE());
+  // struct RClass *class_cextension = mrb_define_module(mrb, "CRubyExtension");
+  // mrb_define_class_method(mrb, class_cextension, "c_method", mrb_c_method, MRB_ARGS_NONE());
+
+  struct RClass *cls, *scan_error;
+
+
+  // VALUE tmp;
+  // id_byteslice = rb_intern("byteslice");
+
+  StringScanner = mrb_define_class("StringScanner", rb_cObject);
+
+  scan_error = mrb_define_class(mrb, "ScanError", mrb->eStandardError_class);
+
+  // ScanError = mrb_define_class_under(StringScanner, "Error", rb_eStandardError);
+  // if (!rb_const_defined(rb_cObject, scan_error)) {
+  //   rb_const_set(rb_cObject, scan_error, ScanError);
+  // }
+  // tmp = rb_str_new2(STRSCAN_VERSION);
+  // rb_obj_freeze(tmp);
+  // rb_const_set(StringScanner, rb_intern("Version"), tmp);
+  // tmp = rb_str_new2("$Id$");
+  // rb_obj_freeze(tmp);
+  // rb_const_set(StringScanner, rb_intern("Id"), tmp);
+  //
+  // mrb_define_alloc_func(StringScanner, strscan_s_allocate);
+  mrb_define_private_method(StringScanner, "initialize", strscan_initialize, -1);
+  mrb_define_private_method(StringScanner, "initialize_copy", strscan_init_copy, 1);
+  mrb_define_singleton_method(StringScanner, "must_C_version", strscan_s_mustc, 0);
+  mrb_define_method(StringScanner, "reset",       strscan_reset,       0);
+  mrb_define_method(StringScanner, "terminate",   strscan_terminate,   0);
+  mrb_define_method(StringScanner, "clear",       strscan_clear,       0);
+  mrb_define_method(StringScanner, "string",      strscan_get_string,  0);
+  mrb_define_method(StringScanner, "string=",     strscan_set_string,  1);
+  mrb_define_method(StringScanner, "concat",      strscan_concat,      1);
+  mrb_define_method(StringScanner, "<<",          strscan_concat,      1);
+  mrb_define_method(StringScanner, "pos",         strscan_get_pos,     0);
+  mrb_define_method(StringScanner, "pos=",        strscan_set_pos,     1);
+  mrb_define_method(StringScanner, "charpos",     strscan_get_charpos, 0);
+  mrb_define_method(StringScanner, "pointer",     strscan_get_pos,     0);
+  mrb_define_method(StringScanner, "pointer=",    strscan_set_pos,     1);
+
+  mrb_define_method(StringScanner, "scan",        strscan_scan,        1);
+  // mrb_define_method(StringScanner, "skip",        strscan_skip,        1);
+  // mrb_define_method(StringScanner, "match?",      strscan_match_p,     1);
+  // mrb_define_method(StringScanner, "check",       strscan_check,       1);
+  // mrb_define_method(StringScanner, "scan_full",   strscan_scan_full,   3);
+  //
+  // mrb_define_method(StringScanner, "scan_until",  strscan_scan_until,  1);
+  // mrb_define_method(StringScanner, "skip_until",  strscan_skip_until,  1);
+  // mrb_define_method(StringScanner, "exist?",      strscan_exist_p,     1);
+  // mrb_define_method(StringScanner, "check_until", strscan_check_until, 1);
+  // mrb_define_method(StringScanner, "search_full", strscan_search_full, 3);
+  //
+  // mrb_define_method(StringScanner, "getch",       strscan_getch,       0);
+  // mrb_define_method(StringScanner, "get_byte",    strscan_get_byte,    0);
+  // mrb_define_method(StringScanner, "getbyte",     strscan_getbyte,     0);
+  // mrb_define_method(StringScanner, "peek",        strscan_peek,        1);
+  // mrb_define_method(StringScanner, "peep",        strscan_peep,        1);
+
+  mrb_define_method(StringScanner, "unscan",      strscan_unscan,      0);
+
+  mrb_define_method(StringScanner, "beginning_of_line?", strscan_bol_p, 0);
+  rb_alias(StringScanner, rb_intern("bol?"), rb_intern("beginning_of_line?"));
+  mrb_define_method(StringScanner, "eos?",        strscan_eos_p,       0);
+  mrb_define_method(StringScanner, "empty?",      strscan_empty_p,     0);
+  mrb_define_method(StringScanner, "rest?",       strscan_rest_p,      0);
+
+  mrb_define_method(StringScanner, "matched?",    strscan_matched_p,   0);
+  mrb_define_method(StringScanner, "matched",     strscan_matched,     0);
+  mrb_define_method(StringScanner, "matched_size", strscan_matched_size, 0);
+  mrb_define_method(StringScanner, "[]",          strscan_aref,        1);
+  mrb_define_method(StringScanner, "pre_match",   strscan_pre_match,   0);
+  mrb_define_method(StringScanner, "post_match",  strscan_post_match,  0);
+  mrb_define_method(StringScanner, "size",        strscan_size,        0);
+  mrb_define_method(StringScanner, "captures",    strscan_captures,    0);
+  mrb_define_method(StringScanner, "values_at",   strscan_values_at,  -1);
+
+  mrb_define_method(StringScanner, "rest",        strscan_rest,        0);
+  mrb_define_method(StringScanner, "rest_size",   strscan_rest_size,   0);
+  mrb_define_method(StringScanner, "restsize",    strscan_restsize,    0);
+
+  mrb_define_method(StringScanner, "inspect",     strscan_inspect,     0);
+
+  mrb_define_method(StringScanner, "fixed_anchor?", strscan_fixed_anchor_p, 0);
+
+
 }
 
-// called at exit
-// #0  mrb_c_and_ruby_extension_example_gem_final (mrb=0x55c067bb22a0) at /home/wsh/qc/mruby/examples/mrbgems/c_and_ruby_extension_example/src/example.c:34
-// #1  0x000055c067589fda in GENERATED_TMP_mrb_c_and_ruby_extension_example_gem_final (mrb=0x55c067bb22a0) at /home/wsh/qc/mruby/build/host/mrbgems/c_and_ruby_extension_example/gem_init.c:75
-// #2  0x000055c06757ff25 in mrb_final_mrbgems (mrb=0x55c067bb22a0) at /home/wsh/qc/mruby/build/host/mrbgems/gem_init.c:123
-// #3  0x000055c067564ed3 in mrb_close (mrb=0x55c067bb22a0) at /home/wsh/qc/mruby/src/state.c:185
-// #4  0x000055c067525e51 in cleanup (mrb=0x55c067bb22a0, args=0x7ffeda727130) at /home/wsh/qc/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:252
-// #5  0x000055c067526489 in main (argc=4, argv=0x7ffeda727288) at /home/wsh/qc/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:362
 void
 mrb_c_and_ruby_extension_example_gem_final(mrb_state* mrb) {
-  /* finalizer */
-  asm("nop");
 }
