@@ -20,6 +20,7 @@ MRuby::Build.new('host') do |conf|
   conf.gem :core => "mruby-bin-debugger"
 
   # test
+  # conf.?
   enable_test
   # bintest
   enable_bintest
